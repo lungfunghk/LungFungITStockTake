@@ -1,0 +1,421 @@
+<html><head><base href="." />
+<title>Inventory Payment System</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .dialog-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 0.5rem;
+    max-width: 800px; /* Increased width for more fields */
+    width: 90%;
+  }
+
+  .dialog-overlay.active {
+    display: flex;
+  }
+
+  .button-ghost:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  .sortable {
+    cursor: pointer;
+  }
+
+  .sortable:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  .editable:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+  }
+
+  .editing {
+    padding: 0 !important;
+  }
+
+  .editing input {
+    width: 100%;
+    height: 100%;
+    padding: 1rem 1.5rem;
+    border: 2px solid #3b82f6;
+  }
+
+  .hidden-column {
+    display: none;
+  }
+
+  .table-container {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+</style>
+</head>
+<body>
+<div class="flex h-screen bg-gray-100">
+  <!-- Left Navigation -->
+  <nav class="w-64 bg-white shadow-md">
+    <div class="p-4">
+      <h2 class="text-xl font-bold mb-4">LungFung stocktake CMS</h2>
+      <ul>
+        <li class="mb-2">
+          <button class="button-ghost w-full text-left px-4 py-2 rounded flex items-center">
+            <span class="mr-2">📦</span>
+            Inventory
+          </button>
+        </li>
+        <li class="mb-2">
+          <button class="button-ghost w-full text-left px-4 py-2 rounded flex items-center">
+            <span class="mr-2">🚚</span>
+            Inventory Logistic
+          </button>
+        </li>
+        <li class="mb-2">
+          <button class="button-ghost w-full text-left px-4 py-2 rounded flex items-center bg-blue-50">
+            <span class="mr-2">💳</span>
+            Inventory Payment
+          </button>
+        </li>
+        <li class="mb-2">
+          <button class="button-ghost w-full text-left px-4 py-2 rounded flex items-center">
+            <span class="mr-2">📍</span>
+            Location
+          </button>
+        </li>
+        <li class="mb-2">
+          <button class="button-ghost w-full text-left px-4 py-2 rounded flex items-center">
+            <span class="mr-2">🏢</span>
+            Company
+          </button>
+        </li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div class="flex-1 flex flex-col overflow-hidden">
+    <!-- Header -->
+    <header class="bg-white shadow-sm">
+      <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-gray-900">Inventory Payment</h1>
+        <div class="flex items-center">
+          <span class="mr-4" id="datetime"></span>
+          <span class="mr-4">Welcome, User</span>
+          <button class="button-ghost px-3 py-1 rounded flex items-center">
+            <span class="mr-2">🚪</span>
+            Logout
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
+      <div class="container mx-auto px-6 py-8">
+        <div class="mb-4 flex justify-between items-center">
+          <div class="space-x-2">
+            <button class="bg-blue-500 text-white px-4 py-2 rounded" onclick="showDialog()">
+              Create New Payment
+            </button>
+            <button id="saveButton" class="bg-green-500 text-white px-4 py-2 rounded opacity-50 cursor-not-allowed" disabled onclick="saveChanges()">
+              Save Changes
+            </button>
+          </div>
+          <div class="flex space-x-2">
+            <button class="border border-gray-300 px-4 py-2 rounded flex items-center" onclick="exportCSV()">
+              <span class="mr-2">⬇️</span>
+              Export CSV
+            </button>
+          </div>
+        </div>
+
+        <div class="mb-4 flex space-x-2 items-center">
+          <input type="text" id="searchInput" placeholder="Search..." class="border p-2 rounded max-w-sm" onkeypress="handleSearch(event)"/>
+          <div class="relative flex items-center">
+            <select class="border p-2 rounded w-[180px]" id="filterColumn">
+              <option value="">Filter by Column</option>
+            </select>
+            <button onclick="clearFilters()" class="ml-2 p-2 hover:bg-gray-100 rounded">
+              <span>❌</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="min-w-full bg-white">
+            <thead>
+              <tr class="bg-gray-50">
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" onclick="sortTable(0)">Payment ID</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" onclick="sortTable(1)">Company Code</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" onclick="sortTable(2)">Quotation Number</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" onclick="sortTable(3)">Invoice Number</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" onclick="sortTable(4)">Amount</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" onclick="sortTable(5)">Payment Number</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" onclick="sortTable(6)">Accountant Submit Date</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" onclick="sortTable(7)">Description</th>
+              </tr>
+            </thead>
+            <tbody id="paymentTable">
+              <!-- Table content will be populated by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white shadow-md mt-auto">
+      <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+        <div class="text-center text-gray-500">
+          Copyright © 2024 Lung Fung Pharmaceutical (Group) Ltd. All rights reserved.
+        </div>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<!-- Dialog -->
+<div class="dialog-overlay" id="dialogOverlay">
+  <div class="dialog-content">
+    <h2 class="text-xl font-bold mb-4">Add New Payment</h2>
+    <div class="space-y-4">
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block mb-1">Company Code</label>
+          <input type="text" class="w-full border p-2 rounded" id="newCompanyCode"/>
+        </div>
+        <div>
+          <label class="block mb-1">Quotation Number</label>
+          <input type="text" class="w-full border p-2 rounded" id="newQuotationNumber"/>
+        </div>
+        <div>
+          <label class="block mb-1">Invoice Number</label>
+          <input type="text" class="w-full border p-2 rounded" id="newInvoiceNumber"/>
+        </div>
+        <div>
+          <label class="block mb-1">Amount</label>
+          <input type="number" step="0.01" class="w-full border p-2 rounded" id="newAmount"/>
+        </div>
+        <div>
+          <label class="block mb-1">Payment Number</label>
+          <input type="text" class="w-full border p-2 rounded" id="newPaymentNumber"/>
+        </div>
+        <div>
+          <label class="block mb-1">Accountant Submit Date</label>
+          <input type="date" class="w-full border p-2 rounded" id="newSubmitDate"/>
+        </div>
+        <div class="col-span-2">
+          <label class="block mb-1">Description</label>
+          <textarea class="w-full border p-2 rounded" id="newDescription" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="text-right mt-4">
+        <button class="bg-blue-500 text-white px-4 py-2 rounded" onclick="saveNewItem()">Save</button>
+        <button class="border border-gray-300 px-4 py-2 rounded ml-2" onclick="hideDialog()">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const mockPayments = [
+  {
+    paymentId: 1,
+    companyCode: 'LF001',
+    quotationNumber: 'Q2024001',
+    invoiceNumber: 'INV001',
+    amount: 15000.00,
+    description: 'IT Equipment Purchase',
+    paymentNumber: 'PAY001',
+    accountantSubmitDate: '2024-01-15',
+    chequeIssueDate: '2024-01-20',
+    depositDate: '2024-01-22',
+    deliveryDate: '2024-01-25',
+    bankSlipSendDate: '2024-01-23',
+    createdDatetime: '2024-01-15T10:00:00',
+    updatedDatetime: '2024-01-15T10:00:00',
+    createdUserId: 'ADMIN',
+    updatedUserId: 'ADMIN'
+  },
+  // Add more mock data as needed
+];
+
+let sortDirection = 1;
+let sortColumn = null;
+let hasChanges = false;
+
+function updateDateTime() {
+  document.getElementById('datetime').textContent = new Date().toLocaleString();
+}
+
+function populateTable(data = mockPayments) {
+  const tableBody = document.getElementById('paymentTable');
+  tableBody.innerHTML = data.map(item => `
+    <tr class="hover:bg-gray-50">
+      <td class="px-6 py-4 editable">${item.paymentId}</td>
+      <td class="px-6 py-4 editable">${item.companyCode}</td>
+      <td class="px-6 py-4 editable">${item.quotationNumber}</td>
+      <td class="px-6 py-4 editable">${item.invoiceNumber}</td>
+      <td class="px-6 py-4 editable">${item.amount.toFixed(2)}</td>
+      <td class="px-6 py-4 editable">${item.paymentNumber}</td>
+      <td class="px-6 py-4 editable">${item.accountantSubmitDate}</td>
+      <td class="px-6 py-4 editable">${item.description}</td>
+    </tr>
+  `).join('');
+
+  document.querySelectorAll('.editable').forEach(cell => {
+    cell.addEventListener('dblclick', () => makeEditable(cell));
+  });
+}
+
+function makeEditable(cell) {
+  const value = cell.textContent;
+  cell.classList.add('editing');
+  const input = document.createElement('input');
+  input.value = value;
+  input.addEventListener('blur', () => {
+    cell.classList.remove('editing');
+    if (cell.textContent !== input.value) {
+      cell.textContent = input.value;
+      hasChanges = true;
+      document.getElementById('saveButton').disabled = false;
+      document.getElementById('saveButton').classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+  });
+  cell.textContent = '';
+  cell.appendChild(input);
+  input.focus();
+}
+
+function handleSearch(event) {
+  if (event.key === 'Enter') {
+    const searchValue = document.getElementById('searchInput').value.toLowerCase();
+    const filterColumn = document.getElementById('filterColumn').value;
+    
+    const filteredPayments = mockPayments.filter(payment => {
+      if (!filterColumn) {
+        return Object.values(payment).some(value => 
+          value.toString().toLowerCase().includes(searchValue)
+        );
+      }
+      return payment[filterColumn].toString().toLowerCase().includes(searchValue);
+    });
+    
+    populateTable(filteredPayments);
+  }
+}
+
+function showDialog() {
+  document.getElementById('dialogOverlay').classList.add('active');
+}
+
+function hideDialog() {
+  document.getElementById('dialogOverlay').classList.remove('active');
+}
+
+function saveNewItem() {
+  const newPayment = {
+    paymentId: mockPayments.length + 1,
+    companyCode: document.getElementById('newCompanyCode').value,
+    quotationNumber: document.getElementById('newQuotationNumber').value,
+    invoiceNumber: document.getElementById('newInvoiceNumber').value,
+    amount: parseFloat(document.getElementById('newAmount').value),
+    description: document.getElementById('newDescription').value,
+    paymentNumber: document.getElementById('newPaymentNumber').value,
+    accountantSubmitDate: document.getElementById('newSubmitDate').value,
+    createdDatetime: new Date().toISOString(),
+    updatedDatetime: new Date().toISOString(),
+    createdUserId: 'ADMIN',
+    updatedUserId: 'ADMIN'
+  };
+
+  mockPayments.push(newPayment);
+  populateTable();
+  hideDialog();
+}
+
+function clearFilters() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('filterColumn').value = '';
+  populateTable(mockPayments);
+}
+
+function exportCSV() {
+  const csvContent = "data:text/csv;charset=utf-8,"
+    + Object.keys(mockPayments[0]).join(",") + "\n"
+    + mockPayments.map(item => Object.values(item).join(",")).join("\n");
+  
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", "payments.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function sortTable(columnIndex) {
+  if (sortColumn === columnIndex) {
+    sortDirection *= -1;
+  } else {
+    sortDirection = 1;
+    sortColumn = columnIndex;
+  }
+
+  const columns = ['paymentId', 'companyCode', 'quotationNumber', 'invoiceNumber', 
+                  'amount', 'paymentNumber', 'accountantSubmitDate', 'description'];
+  
+  mockPayments.sort((a, b) => {
+    const aValue = a[columns[columnIndex]];
+    const bValue = b[columns[columnIndex]];
+    
+    if (typeof aValue === 'number') {
+      return sortDirection * (aValue - bValue);
+    }
+    return sortDirection * String(aValue).localeCompare(String(bValue));
+  });
+
+  populateTable();
+}
+
+function populateFilterColumns() {
+  const select = document.getElementById('filterColumn');
+  const columns = ['paymentId', 'companyCode', 'quotationNumber', 'invoiceNumber', 
+                  'amount', 'paymentNumber', 'accountantSubmitDate', 'description'];
+
+  select.innerHTML = '<option value="">Filter by Column</option>';
+  
+  columns.forEach(column => {
+    const option = document.createElement('option');
+    option.value = column;
+    const displayName = column
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, str => str.toUpperCase());
+    option.textContent = displayName;
+    select.appendChild(option);
+  });
+}
+
+// Initialize
+updateDateTime();
+setInterval(updateDateTime, 1000);
+populateTable();
+populateFilterColumns();
+</script>
+
+</body>
+</html>

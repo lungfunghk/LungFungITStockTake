@@ -24,25 +24,20 @@ CREATE TABLE Inventory_Logistics (
     Updated_datetime DATETIME2 NOT NULL DEFAULT GETDATE(),
     Created_user_id VARCHAR(50) NOT NULL,
     Updated_user_id VARCHAR(50) NOT NULL,
-    
     -- 主鍵約束
     CONSTRAINT PK_Inventory_Logistics PRIMARY KEY (Logistics_ID),
-    
     -- 外鍵約束
     CONSTRAINT FK_Logistics_Inventory 
         FOREIGN KEY (Inventory_Number) 
         REFERENCES Inventory(Inventory_Number)
         ON DELETE NO ACTION
         ON UPDATE NO ACTION,
-    
     CONSTRAINT FK_Logistics_From_Location 
         FOREIGN KEY (From_Location) 
         REFERENCES Location_Master(Location_Code),
-    
     CONSTRAINT FK_Logistics_To_Location 
         FOREIGN KEY (To_Location) 
         REFERENCES Location_Master(Location_Code),
-    
     -- 檢查約束    
     CONSTRAINT CHK_Different_Locations 
         CHECK (From_Location != To_Location)
@@ -115,6 +110,8 @@ ROLLBACK;
 THROW 50001, '資產當前位置與來源位置不符', 1;
 RETURN;
 END
+
+
 -- 插入新的物流記錄
 INSERT INTO Inventory_Logistics (
 Inventory_Number,

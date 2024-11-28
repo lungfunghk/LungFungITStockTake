@@ -25,17 +25,12 @@ CREATE TABLE Inventory_Payment (
     Created_datetime DATETIME2 NOT NULL DEFAULT GETDATE(),
     Updated_datetime DATETIME2 NOT NULL DEFAULT GETDATE(),
     Created_user_id VARCHAR(50) NOT NULL,
-    Updated_user_id VARCHAR(50) NOT NULL,
+    Updated_user_id VARCHAR(50) NOT NULL, 
 
     -- 外鍵約束
     CONSTRAINT FK_Payment_Company 
         FOREIGN KEY (Company_Code) 
         REFERENCES Company_Master(Company_Code),
-
-    -- 關聯到 Inventory 表的外鍵
-    CONSTRAINT FK_Payment_Inventory 
-        FOREIGN KEY (Payment_Number) 
-        REFERENCES Inventory(Payment_Number),
 
     -- 檢查約束
     CONSTRAINT CHK_Amount 

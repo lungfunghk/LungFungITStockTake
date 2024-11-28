@@ -1,0 +1,535 @@
+<html><head><base href="." />
+<title>Inventory Logistic</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .dialog-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 0.5rem;
+    max-width: 500px;
+    width: 90%;
+  }
+
+  .dialog-overlay.active {
+    display: flex;
+  }
+
+  .button-ghost:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  .sortable {
+    cursor: pointer;
+  }
+
+  .sortable:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  .editable:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+  }
+
+  .editing {
+    padding: 0 !important;
+  }
+
+  .editing input {
+    width: 100%;
+    height: 100%;
+    padding: 1rem 1.5rem;
+    border: 2px solid #3b82f6;
+  }
+
+  .hidden-column {
+    display: none;
+  }
+
+  .show-more-button {
+    cursor: pointer;
+    padding: 0.5rem;
+    color: #3b82f6;
+  }
+
+  .show-more-button:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+    border-radius: 0.25rem;
+  }
+
+  .table-container {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+</style>
+</head>
+<body>
+<div class="flex h-screen bg-gray-100">
+  <!-- Left Navigation -->
+  <nav class="w-64 bg-white shadow-md">
+    <div class="p-4">
+      <h2 class="text-xl font-bold mb-4">LungFung stocktake CMS</h2>
+      <ul>
+        <li class="mb-2">
+          <button class="button-ghost w-full text-left px-4 py-2 rounded flex items-center">
+            <span class="mr-2">📦</span>
+            Inventory
+          </button>
+        </li>
+        <li class="mb-2">
+          <button class="button-ghost w-full text-left px-4 py-2 rounded flex items-center bg-blue-50">
+            <span class="mr-2">🚚</span>
+            Inventory Logistic
+          </button>
+        </li>
+        <li class="mb-2">
+          <button class="button-ghost w-full text-left px-4 py-2 rounded flex items-center">
+            <span class="mr-2">💳</span>
+            Inventory Payment
+          </button>
+        </li>
+        <li class="mb-2">
+          <button class="button-ghost w-full text-left px-4 py-2 rounded flex items-center">
+            <span class="mr-2">📍</span>
+            Location  
+          </button>
+        </li>
+        <li class="mb-2">
+          <button class="button-ghost w-full text-left px-4 py-2 rounded flex items-center">
+            <span class="mr-2">🏢</span>
+            Company
+          </button>
+        </li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div class="flex-1 flex flex-col overflow-hidden">
+    <!-- Header -->
+    <header class="bg-white shadow-sm">
+      <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-gray-900">Inventory Logistic Management</h1>
+        <div class="flex items-center">
+          <span class="mr-4" id="datetime"></span>
+          <span class="mr-4">Welcome, User</span>
+          <button class="button-ghost px-3 py-1 rounded flex items-center">
+            <span class="mr-2">🚪</span>
+            Logout
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
+      <div class="container mx-auto px-6 py-8">
+        <div class="mb-4 flex justify-between items-center">
+          <div class="space-x-2">
+            <button class="bg-blue-500 text-white px-4 py-2 rounded" onclick="showDialog()">
+              Create New Logistic Record
+            </button>
+            <button id="saveButton" class="bg-green-500 text-white px-4 py-2 rounded opacity-50 cursor-not-allowed" disabled onclick="saveChanges()">
+              Save Changes
+            </button>
+          </div>
+          <div class="flex space-x-2">
+            <button class="border border-gray-300 px-4 py-2 rounded flex items-center" onclick="exportCSV()">
+              <span class="mr-2">⬇️</span>
+              Export CSV
+            </button>
+            <button class="border border-gray-300 px-4 py-2 rounded" onclick="toggleHiddenColumns()" id="showMoreButton">
+              Show More ▼
+            </button>
+          </div>
+        </div>
+
+        <div class="mb-4 flex space-x-2 items-center">
+          <input type="text" id="searchInput" placeholder="Search..." class="border p-2 rounded max-w-sm" onkeypress="handleSearch(event)"/>
+          <div class="relative flex items-center">
+            <select class="border p-2 rounded w-[180px]" id="filterColumn">
+              <option value="">Filter by Column</option>
+            </select>
+            <button onclick="clearFilters()" class="ml-2 p-2 hover:bg-gray-100 rounded">
+              <span>❌</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="min-w-full bg-white">
+          <thead>
+            <tr class="bg-gray-50">
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" onclick="sortTable(0)">Logistics ID</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" onclick="sortTable(1)">Inventory Number</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" onclick="sortTable(2)">From Location</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" onclick="sortTable(3)">To Location</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" onclick="sortTable(4)">Staff ID</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" onclick="sortTable(5)">Status</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable hidden-column" onclick="sortTable(6)">Remark</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable hidden-column" onclick="sortTable(7)">Is Initialized</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable hidden-column" onclick="sortTable(8)">Created Datetime</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable hidden-column" onclick="sortTable(9)">Updated Datetime</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable hidden-column" onclick="sortTable(10)">Created User ID</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable hidden-column" onclick="sortTable(11)">Updated User ID</th>
+            </tr>
+          </thead>
+          <tbody id="logisticsTable">
+            <!-- Table content will be populated by JavaScript -->
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white shadow-md mt-auto">
+      <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+        <div class="text-center text-gray-500">
+          Copyright © 2024 Lung Fung Pharmaceutical (Group) Ltd. All rights reserved.
+        </div>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<!-- Dialog -->
+<div class="dialog-overlay" id="dialogOverlay">
+  <div class="dialog-content">
+    <h2 class="text-xl font-bold mb-4">Add New Logistic Record</h2>
+    <div class="space-y-4">
+      <div class="grid grid-cols-4 items-center gap-4">
+        <label class="text-right">Inventory Number</label>
+        <input type="text" class="col-span-3 border p-2 rounded" id="newInventoryNumber"/>
+      </div>
+      <div class="grid grid-cols-4 items-center gap-4">
+        <label class="text-right">From Location</label>
+        <select class="col-span-3 border p-2 rounded" id="newFromLocation">
+          ${locationData.map(loc => `<option value="${loc.locationName}">${loc.locationName}</option>`).join('')}
+        </select>
+      </div>
+      <div class="grid grid-cols-4 items-center gap-4">
+        <label class="text-right">To Location</label>
+        <select class="col-span-3 border p-2 rounded" id="newToLocation">
+          ${locationData.map(loc => `<option value="${loc.locationName}">${loc.locationName}</option>`).join('')}
+        </select>
+      </div>
+      <div class="grid grid-cols-4 items-center gap-4">
+        <label class="text-right">Staff ID</label>
+        <input type="text" class="col-span-3 border p-2 rounded" id="newStaffId"/>
+      </div>
+      <div class="text-right mt-4">
+        <button class="bg-blue-500 text-white px-4 py-2 rounded" onclick="saveNewItem()">Save</button>
+        <button class="border border-gray-300 px-4 py-2 rounded ml-2" onclick="hideDialog()">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const mockLogistics = [
+  {
+    logisticsId: 'LOG001',
+    inventoryNumber: 'INV001',
+    fromLocation: 'Warehouse A',
+    toLocation: 'Office B',
+    staffId: 'STAFF001',
+    status: 'Completed',
+    remark: 'Regular transfer',
+    isInitialized: true,
+    createdDatetime: '2024-01-01 09:00:00',
+    updatedDatetime: '2024-01-01 09:30:00',
+    createdUserId: 'USER001',
+    updatedUserId: 'USER001'
+  },
+  {
+    logisticsId: 'LOG002',
+    inventoryNumber: 'INV002',
+    fromLocation: 'Office B',
+    toLocation: 'Warehouse C',
+    staffId: 'STAFF002',
+    status: 'In Transit',
+    remark: 'Urgent delivery',
+    isInitialized: true,
+    createdDatetime: '2024-01-02 10:00:00',
+    updatedDatetime: '2024-01-02 10:15:00',
+    createdUserId: 'USER002',
+    updatedUserId: 'USER002'
+  },
+  {
+    logisticsId: 'LOG003',
+    inventoryNumber: 'INV003',
+    fromLocation: 'Warehouse C',
+    toLocation: 'Office A',
+    staffId: 'STAFF003',
+    status: 'Pending',
+    remark: 'Scheduled transfer',
+    isInitialized: false,
+    createdDatetime: '2024-01-03 11:00:00',
+    updatedDatetime: '2024-01-03 11:45:00',
+    createdUserId: 'USER003',
+    updatedUserId: 'USER003'
+  }
+];
+const locationData = [
+  {locationName: 'Main Warehouse'},
+  {locationName: 'Central Shop'},
+  {locationName: 'Head Office'},
+  {locationName: 'Secondary Warehouse'}
+];
+
+function createLocationDropdown() {
+  const select = document.createElement('select');
+  select.classList.add('w-full', 'h-full', 'p-4', 'border-2', 'border-blue-500');
+  
+  locationData.forEach(location => {
+    const option = document.createElement('option');
+    option.value = location.locationName;
+    option.textContent = location.locationName;
+    select.appendChild(option);
+  });
+  
+  return select;
+}
+
+let sortDirection = 1;
+let sortColumn = null;
+let hasChanges = false;
+
+function updateDateTime() {
+  document.getElementById('datetime').textContent = new Date().toLocaleString();
+}
+
+function makeEditable(cell) {
+  const value = cell.textContent;
+  const columnName = cell.cellIndex === 2 ? 'fromLocation' : 
+                    cell.cellIndex === 3 ? 'toLocation' : null;
+                    
+  cell.classList.add('editing');
+  
+  // Handle location fields differently
+  if (columnName === 'fromLocation' || columnName === 'toLocation') {
+    const select = createLocationDropdown();
+    select.value = value;
+    
+    select.addEventListener('blur', () => {
+      cell.classList.remove('editing');
+      if (cell.textContent !== select.value) {
+        cell.textContent = select.value;
+        hasChanges = true;
+        document.getElementById('saveButton').disabled = false;
+        document.getElementById('saveButton').classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    });
+    
+    cell.textContent = '';
+    cell.appendChild(select);
+    select.focus();
+  } else {
+    // Original input behavior for other fields
+    const input = document.createElement('input');
+    input.value = value;
+    input.addEventListener('blur', () => {
+      cell.classList.remove('editing');
+      if (cell.textContent !== input.value) {
+        cell.textContent = input.value;
+        hasChanges = true;
+        document.getElementById('saveButton').disabled = false;
+        document.getElementById('saveButton').classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    });
+    cell.textContent = '';
+    cell.appendChild(input);
+    input.focus();
+  }
+}
+
+function populateTable(data = mockLogistics) {
+  const tableBody = document.getElementById('logisticsTable');
+  tableBody.innerHTML = data.map(item => `
+    <tr class="hover:bg-gray-50">
+      <td class="px-6 py-4 editable">${item.logisticsId}</td>
+      <td class="px-6 py-4 editable">${item.inventoryNumber}</td>
+      <td class="px-6 py-4 editable">${item.fromLocation}</td>
+      <td class="px-6 py-4 editable">${item.toLocation}</td>
+      <td class="px-6 py-4 editable">${item.staffId}</td>
+      <td class="px-6 py-4 editable">${item.status}</td>
+      <td class="px-6 py-4 editable hidden-column">${item.remark || ''}</td>
+      <td class="px-6 py-4 editable hidden-column">${item.isInitialized}</td>
+      <td class="px-6 py-4 editable hidden-column">${item.createdDatetime}</td>
+      <td class="px-6 py-4 editable hidden-column">${item.updatedDatetime}</td>
+      <td class="px-6 py-4 editable hidden-column">${item.createdUserId}</td>
+      <td class="px-6 py-4 editable hidden-column">${item.updatedUserId}</td>
+    </tr>
+  `).join('');
+
+  document.querySelectorAll('.editable').forEach(cell => {
+    cell.addEventListener('dblclick', () => makeEditable(cell));
+  });
+}
+
+function toggleHiddenColumns() {
+  const hiddenColumns = document.querySelectorAll('.hidden-column');
+  const showMoreButton = document.getElementById('showMoreButton');
+  const isShowing = hiddenColumns[0].style.display === 'table-cell';
+  
+  hiddenColumns.forEach(col => {
+    col.style.display = isShowing ? 'none' : 'table-cell';
+  });
+  
+  showMoreButton.textContent = isShowing ? 'Show More ▼' : 'Show Less ▲';
+}
+
+function handleSearch(event) {
+  if (event.key === 'Enter') {
+    const searchValue = document.getElementById('searchInput').value;
+    const filterColumn = document.getElementById('filterColumn').value;
+
+    try {
+      let searchPattern = searchValue.replace(/\*/g, '.*');
+      const searchRegex = new RegExp(searchPattern, 'i');
+      
+      const filteredLogistics = mockLogistics.filter(item => {
+        if (!filterColumn) {
+          return Object.values(item).some(value => 
+            searchRegex.test(value.toString())
+          );
+        } else {
+          return searchRegex.test(item[filterColumn].toString());
+        }
+      });
+
+      populateTable(filteredLogistics);
+    } catch (e) {
+      console.error('Invalid search pattern:', e);
+      alert('Invalid search pattern. Please check your input.');
+    }
+  }
+}
+
+function sortTable(columnIndex) {
+  const columns = ['logisticsId', 'inventoryNumber', 'fromLocation', 'toLocation', 'staffId', 'status', 
+                  'remark', 'isInitialized', 'createdDatetime', 'updatedDatetime', 'createdUserId', 'updatedUserId'];
+  
+  if (sortColumn === columnIndex) {
+    sortDirection *= -1;
+  } else {
+    sortDirection = 1;
+    sortColumn = columnIndex;
+  }
+
+  mockLogistics.sort((a, b) => {
+    const aValue = a[columns[columnIndex]] || '';
+    const bValue = b[columns[columnIndex]] || '';
+    return sortDirection * String(aValue).localeCompare(String(bValue));
+  });
+
+  populateTable();
+}
+
+function populateFilterColumns() {
+  const select = document.getElementById('filterColumn');
+  const columns = Object.keys(mockLogistics[0]);
+
+  select.innerHTML = '<option value="">Filter by Column</option>';
+  columns.forEach(column => {
+    const option = document.createElement('option');
+    option.value = column;
+    option.textContent = column.replace(/([A-Z])/g, ' $1').trim();
+    select.appendChild(option);
+  });
+}
+
+function saveChanges() {
+  hasChanges = false;
+  document.getElementById('saveButton').disabled = true;
+  document.getElementById('saveButton').classList.add('opacity-50', 'cursor-not-allowed');
+  alert('Changes saved successfully!');
+}
+
+function showDialog() {
+  document.getElementById('dialogOverlay').classList.add('active');
+}
+
+function hideDialog() {
+  document.getElementById('dialogOverlay').classList.remove('active');
+}
+
+function saveNewItem() {
+  const inventoryNumber = document.getElementById('newInventoryNumber').value;
+  const fromLocation = document.getElementById('newFromLocation').value;
+  const toLocation = document.getElementById('newToLocation').value;
+  const staffId = document.getElementById('newStaffId').value;
+  
+  if (inventoryNumber && fromLocation && toLocation && staffId) {
+    const newLogistic = {
+      logisticsId: `LOG${String(mockLogistics.length + 1).padStart(3, '0')}`,
+      inventoryNumber,
+      fromLocation,
+      toLocation,
+      staffId,
+      status: 'Pending',
+      remark: '',
+      isInitialized: false,
+      createdDatetime: new Date().toISOString().replace('T', ' ').split('.')[0],
+      updatedDatetime: new Date().toISOString().replace('T', ' ').split('.')[0],
+      createdUserId: 'CURRENT_USER',
+      updatedUserId: 'CURRENT_USER'
+    };
+    
+    mockLogistics.push(newLogistic);
+    populateTable();
+    hideDialog();
+    
+    // Clear input fields
+    document.getElementById('newInventoryNumber').value = '';
+    document.getElementById('newFromLocation').value = '';
+    document.getElementById('newToLocation').value = '';
+    document.getElementById('newStaffId').value = '';
+  } else {
+    alert('Please fill in all required fields');
+  }
+}
+
+function clearFilters() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('filterColumn').value = '';
+  populateTable(mockLogistics);
+}
+
+function exportCSV() {
+  const csvContent = "data:text/csv;charset=utf-8,"
+    + Object.keys(mockLogistics[0]).join(",") + "\n"
+    + mockLogistics.map(item => Object.values(item).join(",")).join("\n");
+  
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", "logistics.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// Initialize
+updateDateTime();
+setInterval(updateDateTime, 1000);
+populateTable();
+populateFilterColumns();
+</script>
+
+</body>
+</html>
